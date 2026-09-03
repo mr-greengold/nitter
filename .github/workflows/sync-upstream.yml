@@ -1,0 +1,32 @@
+name: Sync fork with upstream
+
+on:
+  schedule:
+    # Once a month, first day (UTC)
+    # Stable project — monthly sync keeps fork updated without excessive activity
+    - cron: "5 4 1 * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Sync upstream
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
+        run: |
+          echo "Attempting fast-forward sync..."
+          if ! gh repo sync ${{ github.repository }} -b main; then
+            echo "Fast-forward failed (diverged fork?), performing hard reset..."
+            git clone "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" repo
+            cd repo
+            git remote add upstream https://github.com/zedeus/nitter.git
+            git fetch upstream main
+            git checkout main
+            git reset --hard upstream/main
+            git push origin main --force
+          else
+            echo "Fast-forward sync completed."
+          fi
